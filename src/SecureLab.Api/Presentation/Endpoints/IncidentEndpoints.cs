@@ -21,12 +21,10 @@ public static class IncidentEndpoints
             .Produces<IncidentDetailsResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapGet("/severity-summary", () => Results.Problem(
-                title: "Точку розширення ще не реалізовано",
-                detail: "Завершіть цей endpoint під час лабораторної роботи № 1.",
-                statusCode: StatusCodes.Status501NotImplemented))
+        group.MapGet("/severity-summary", GetSeveritySummaryAsync)
             .WithName("GetIncidentSeveritySummary")
-            .ProducesProblem(StatusCodes.Status501NotImplemented);
+            .Produces<IReadOnlyList<IncidentSeveritySummaryResponse>>()
+            .ProducesValidationProblem();
 
         return endpoints;
     }
@@ -66,5 +64,32 @@ public static class IncidentEndpoints
                 detail: $"Інцидент '{id}' не існує.",
                 statusCode: StatusCodes.Status404NotFound)
             : Results.Ok(incident);
+    }
+
+    private static async Task<IResult> GetSeveritySummaryAsync(
+        string? status,
+        IncidentQueries queries,
+        CancellationToken cancellationToken)
+    {
+        IncidentStatus? parsedStatus = null;
+        if (status is not null)
+        {
+            // Дозволені лише назви статусів із цього списку
+            var allowedName = Enum.GetNames<IncidentStatus>()
+                .FirstOrDefault(name => string.Equals(name, status, StringComparison.OrdinalIgnoreCase));
+
+            if (allowedName is null)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["status"] = ["Допустимі значення: New, Triaged, InProgress, Resolved, Closed."]
+                });
+            }
+
+            parsedStatus = Enum.Parse<IncidentStatus>(allowedName);
+        }
+
+        var summary = await queries.GetSeveritySummaryAsync(parsedStatus, cancellationToken);
+        return Results.Ok(summary);
     }
 }
