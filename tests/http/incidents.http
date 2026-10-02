@@ -25,6 +25,18 @@ Accept: application/json
 GET {{host}}/api/incidents?status=Unknown
 Accept: application/json
 
-### Lab 1 extension point: expected 501 before student implementation
+### Lab 1: severity summary. Очікується 200: High 1, Low 1, Medium 1 (спершу більша кількість, потім назва A-Z)
 GET {{host}}/api/incidents/severity-summary
+Accept: application/json
+
+### Summary зі статусом Triaged. Очікується 200: тільки Medium 1
+GET {{host}}/api/incidents/severity-summary?status=Triaged
+Accept: application/json
+
+### Summary зі статусом Resolved. Очікується 200 і порожній масив []
+GET {{host}}/api/incidents/severity-summary?status=Resolved
+Accept: application/json
+
+### Summary з неправильним статусом. Очікується 400 Validation Problem Details
+GET {{host}}/api/incidents/severity-summary?status=Unknown
 Accept: application/json

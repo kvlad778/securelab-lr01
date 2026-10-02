@@ -46,6 +46,24 @@
         Виберіть інцидент зі списку.
       </div>
     </section>
+    
+    <section class="panel summary-panel" aria-labelledby="summary-title">
+      <h2 id="summary-title">Підсумок за severity</h2>
+      <form id="summary-form">
+        <label for="summary-filter">Статус</label>
+        <select id="summary-filter" name="status">
+          <option value="">Усі</option>
+          <option value="New">New</option>
+          <option value="Triaged">Triaged</option>
+          <option value="InProgress">InProgress</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Closed">Closed</option>
+        </select>
+        <button id="summary-button" type="submit">Показати підсумок</button>
+      </form>
+      <p id="summary-message" role="status"></p>
+      <ul id="summary-list"></ul>
+    </section>
   </main>
 </body>
 </html>

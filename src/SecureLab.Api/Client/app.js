@@ -2,6 +2,10 @@ const listElement = document.querySelector("#incident-list");
 const listStatusElement = document.querySelector("#list-status");
 const detailsElement = document.querySelector("#incident-details");
 const filterForm = document.querySelector("#filter-form");
+const summaryForm = document.querySelector("#summary-form");
+const summaryButton = document.querySelector("#summary-button");
+const summaryMessage = document.querySelector("#summary-message");
+const summaryList = document.querySelector("#summary-list");
 
 async function apiFetch(path, options = {}) {
   const response = await fetch(path, {
@@ -103,9 +107,45 @@ async function loadIncidentDetails(id) {
   }
 }
 
+async function loadSeveritySummary() {
+  summaryButton.disabled = true;
+  summaryMessage.textContent = "Завантаження…";
+  summaryList.replaceChildren();
+
+  const status = new FormData(summaryForm).get("status");
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+
+  try {
+    const summary = await apiFetch(`/api/incidents/severity-summary${query}`);
+
+    // Порожній стан: сервер повернув [] (наприклад, для статусу Resolved)
+    if (summary.length === 0) {
+      summaryMessage.textContent = "Даних немає";
+      return;
+    }
+
+    for (const entry of summary) {
+      const item = document.createElement("li");
+      item.textContent = `${entry.severity}: ${entry.count}`;
+      summaryList.append(item);
+    }
+    summaryMessage.textContent = `Груп: ${summary.length}`;
+  } catch {
+    // Фіксоване повідомлення без технічних деталей
+    summaryMessage.textContent = "Не вдалося завантажити підсумок. Спробуйте пізніше.";
+  } finally {
+    summaryButton.disabled = false;
+  }
+}
+
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
   loadIncidents();
+});
+
+summaryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadSeveritySummary();
 });
 
 loadIncidents();

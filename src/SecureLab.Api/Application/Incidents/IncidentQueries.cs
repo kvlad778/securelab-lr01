@@ -58,4 +58,38 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
                     .ToList()))
             .SingleOrDefaultAsync(cancellationToken);
     }
+
+
+    public async Task<IReadOnlyList<IncidentSeveritySummaryResponse>> GetSeveritySummaryAsync(
+        IncidentStatus? status,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Incidents.AsNoTracking();
+        if (status is not null)
+        {
+            query = query.Where(incident => incident.Status == status);
+        }
+
+        // 1. База групує інциденти за важливістю й рахує їх
+        var groups = await query
+            .GroupBy(incident => incident.Severity)
+            .Select(group => new { Severity = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        // 2. Сортуємо вже в пам'яті: більша кількість першою, при рівній кількості за назвою від A до Z
+        var summary = groups
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Severity.ToString(), StringComparer.Ordinal)
+            .Select(item => new IncidentSeveritySummaryResponse(
+                item.Severity.ToString(),
+                item.Count))
+            .ToList();
+
+        logger.LogInformation(
+            "Built severity summary with {GroupCount} groups for status filter {Status}",
+            summary.Count,
+            status);
+
+        return summary;
+    }
 }
