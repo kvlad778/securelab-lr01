@@ -9,24 +9,78 @@ public static class Lab02Endpoints
 {
     public static void MapLab02Endpoints(this WebApplication app)
     {
-        app.MapGet("/api/incidents/search", async (string? q, string? sortBy, SecureLabDbContext db, CancellationToken ct) =>
-        {
-            var order = sortBy switch
-            {
-                null or "" or "createdAtUtc" => "created_at_utc DESC",
-                "severity" => "severity", "status" => "status", _ => sortBy
-            };
-            var sql = "SELECT * FROM incidents WHERE title ILIKE '%" + (q ?? "")
-                + "%' OR description ILIKE '%" + (q ?? "") + "%' ORDER BY " + order + " LIMIT 50";
-            var rows = await db.Incidents.FromSqlRaw(sql).AsNoTracking().ToListAsync(ct);
-            return Results.Ok(rows.Select(row => new
-            {
-                row.Id, row.Title, row.Description,
-                Severity = row.Severity.ToString(), Status = row.Status.ToString(), row.CreatedAtUtc
-            }));
-        });
+        app.MapGet("/api/incidents/search", SearchIncidentsAsync);
         app.MapPost("/api/incidents", CreateIncidentAsync);
     }
+
+    // ЛР 02, етап 4: безпечний пошук. Значення q передається в PostgreSQL окремим параметром
+    // (LINQ + EF.Functions.ILike), а структуру сортування обирає серверний allowlist.
+    private static async Task<IResult> SearchIncidentsAsync(
+        string? q,
+        string? sortBy,
+        SecureLabDbContext db,
+        CancellationToken ct)
+    {
+        // Literal substring: екрануємо \, % і _, потім додаємо зовнішні % для пошуку підрядка.
+        var pattern = "%" + EscapeLike(q ?? "") + "%";
+
+        // Одна умова з явним OR: збіг у Title АБО в Description.
+        var found = db.Incidents.AsNoTracking()
+            .Where(item => EF.Functions.ILike(item.Title, pattern, "\\")
+                || EF.Functions.ILike(item.Description, pattern, "\\"));
+
+        // Allowlist sortBy: клієнт лише обирає одну з написаних тут гілок.
+        // Ранги замість алфавіту, другий ключ Id робить порядок визначеним.
+        IQueryable<Incident>? ordered = sortBy switch
+        {
+            null or "" or "createdAtUtc" => found
+                .OrderByDescending(item => item.CreatedAtUtc)
+                .ThenBy(item => item.Id),
+            "severity" => found
+                .OrderBy(item => item.Severity == IncidentSeverity.Critical ? 0
+                    : item.Severity == IncidentSeverity.High ? 1
+                    : item.Severity == IncidentSeverity.Medium ? 2
+                    : 3)
+                .ThenBy(item => item.Id),
+            "status" => found
+                .OrderBy(item => item.Status == IncidentStatus.New ? 0
+                    : item.Status == IncidentStatus.Triaged ? 1
+                    : item.Status == IncidentStatus.InProgress ? 2
+                    : item.Status == IncidentStatus.Resolved ? 3
+                    : 4)
+                .ThenBy(item => item.Id),
+            _ => null
+        };
+
+        // Невідоме значення sortBy до SQL не доходить: одразу 400 з ключем sortBy.
+        if (ordered is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["sortBy"] = ["Допустимі значення: createdAtUtc, severity, status."]
+            });
+        }
+
+        // Take(50) після сортування стає LIMIT у SQL; Select залишає лише поля response DTO.
+        var items = await ordered
+            .Take(50)
+            .Select(item => new IncidentSearchItemResponse(
+                item.Id,
+                item.Title,
+                item.Description,
+                item.Severity.ToString(),
+                item.Status.ToString(),
+                item.CreatedAtUtc))
+            .ToListAsync(ct);
+        return Results.Ok(items);
+    }
+
+    // Спершу подвоюємо сам escape-символ \, потім екрануємо wildcard-и % і _.
+    private static string EscapeLike(string value) =>
+        value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
 
     // ЛР 02, етап 2: POST /api/incidents з серверною валідацією контракту 2-A.
     private static async Task<IResult> CreateIncidentAsync(
@@ -155,4 +209,13 @@ public sealed record CreatedIncidentResponse(
     string Severity,
     string Status,
     DateTimeOffset OccurredAtUtc,
+    DateTimeOffset CreatedAtUtc);
+
+// Response DTO одного елемента пошуку (та сама форма, що й анонімний об'єкт scaffold).
+public sealed record IncidentSearchItemResponse(
+    Guid Id,
+    string Title,
+    string Description,
+    string Severity,
+    string Status,
     DateTimeOffset CreatedAtUtc);
