@@ -1,0 +1,159 @@
+@api = http://localhost:5080
+
+### USB — перевірка встановлення (очікується 200 і один запис …0005)
+GET {{api}}/api/incidents/search?q=USB
+
+########## ЕТАП 2. Контракт POST /api/incidents ##########
+
+### T-01 — коректне створення (очікується 201 Created + Location)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "  T-01 Коректний інцидент Козак  ",
+    "description": "Штучний запис для перевірки коректного створення.",
+    "severity": "medium",
+    "occurredAtUtc": "2026-09-01T13:00:00+03:00"
+}
+
+### CP-01 — зайві server-managed поля ігноруються (201, новий id, status New)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "CP-01 Overposting probe",
+    "description": "Спроба передати поля, які встановлює лише сервер.",
+    "severity": "Low",
+    "occurredAtUtc": "2026-09-01T10:00:00Z",
+    "id": "11111111-1111-1111-1111-111111111111",
+    "ownerUserId": "10000000-0000-0000-0000-000000000002",
+    "status": "Closed",
+    "createdAtUtc": "2000-01-01T00:00:00Z"
+}
+
+### CP-01 — відкрити створений запис: замініть ID на id з Location попередньої відповіді
+GET {{api}}/api/incidents/ВСТАВТЕ_ID_З_LOCATION
+
+### T-02a — severity "7" (очікується 400, ключ severity)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "T-02 Severity seven",
+    "description": "Перевірка числового рядка замість назви severity.",
+    "severity": "7",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-02b — кілька помилок одразу: порожній title, невідомий severity, немає occurredAtUtc (400)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "    ",
+    "description": "Опис є, але інші поля некоректні.",
+    "severity": "Urgent"
+}
+
+### T-02c — дата більш ніж на 5 хвилин у майбутньому (400, ключ occurredAtUtc)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "T-02 Future date",
+    "description": "Перевірка верхньої межі часу події.",
+    "severity": "Low",
+    "occurredAtUtc": "2099-01-01T00:00:00Z"
+}
+
+### T-09a — High і description 39 символів після Trim (400, ключ description)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "T-09 Boundary 39",
+    "description": "  012345678901234567890123456789012345678  ",
+    "severity": "High",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-09b — High і description 40 символів (201)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "T-09 Boundary 40",
+    "description": "0123456789012345678901234567890123456789",
+    "severity": "High",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-03a — перший запис із title "Duplicate Alert" (201)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "Duplicate Alert",
+    "description": "Перший запис для перевірки предметного конфлікту.",
+    "severity": "Low",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-03b — той самий title ще раз (409 Conflict)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "  Duplicate Alert  ",
+    "description": "Другий запис з тим самим title після Trim.",
+    "severity": "Low",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-03c — інший регістр "duplicate alert" — це інший title (201)
+POST {{api}}/api/incidents
+Content-Type: application/json
+
+{
+    "title": "duplicate alert",
+    "description": "Регістр відрізняється, тому конфлікту немає.",
+    "severity": "Low",
+    "occurredAtUtc": "2026-09-01T10:00:00Z"
+}
+
+### T-06 — ресурс не знайдено (404, title «Інцидент не знайдено»)
+GET {{api}}/api/incidents/99999999-9999-9999-9999-999999999999
+
+########## ЕТАП 3 і 4. Пошук: запити A–D ##########
+
+### A. Звичайний пошук
+GET {{api}}/api/incidents/search?q=USB
+
+### B. Значення, якого немає
+GET {{api}}/api/incidents/search?q=zz-no-match
+
+### C. Єдиний дозволений контрольний ввід: zz-no-match' OR TRUE -- (з пробілом наприкінці)
+GET {{api}}/api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20
+
+### D. Легітимний апостроф
+GET {{api}}/api/incidents/search?q=O%27Brien
+
+### Позитивна регресія: комп'ютерного (UTF-8 URL encoding)
+GET {{api}}/api/incidents/search?q=%D0%BA%D0%BE%D0%BC%D0%BF%27%D1%8E%D1%82%D0%B5%D1%80%D0%BD%D0%BE%D0%B3%D0%BE
+
+### Literal substring: один знак % (після виправлення очікується [])
+GET {{api}}/api/incidents/search?q=%25
+
+########## Сортування (allowlist) ##########
+
+### Без sortBy (createdAtUtc за замовчуванням)
+GET {{api}}/api/incidents/search
+
+### sortBy=severity
+GET {{api}}/api/incidents/search?sortBy=severity
+
+### sortBy=status
+GET {{api}}/api/incidents/search?sortBy=status
+
+### T-05 — невідоме sortBy (після виправлення: 400, ключ sortBy)
+GET {{api}}/api/incidents/search?sortBy=price

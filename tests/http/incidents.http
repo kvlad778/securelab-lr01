@@ -25,7 +25,7 @@ Accept: application/json
 GET {{host}}/api/incidents?status=Unknown
 Accept: application/json
 
-### Lab 1: severity summary. Очікується 200: High 1, Low 1, Medium 1 (спершу більша кількість, потім назва A-Z)
+### Lab 1: severity summary. Очікується 200: Low 3, High 1, Medium 1 (після scaffold ЛР 2) (спершу більша кількість, потім назва A-Z)
 GET {{host}}/api/incidents/severity-summary
 Accept: application/json
 

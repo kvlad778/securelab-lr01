@@ -70,10 +70,14 @@ public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
             .Select(item => item.GetProperty("severity").GetString())
             .ToArray();
 
-        Assert.Equal(new[] { "High", "Low", "Medium" }, severities);
+        // ЛР 02: scaffold додав два інциденти Low, тому для штатного seed Low=3, High=1, Medium=1.
+        Assert.Equal(new[] { "Low", "High", "Medium" }, severities);
+        var counts = items
+            .Select(item => item.GetProperty("count").GetInt32())
+            .ToArray();
+        Assert.Equal(new[] { 3, 1, 1 }, counts);
         foreach (var item in items)
         {
-            Assert.Equal(1, item.GetProperty("count").GetInt32());
             Assert.Equal(2, item.EnumerateObject().Count());
         }
     }
