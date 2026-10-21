@@ -1,0 +1,24 @@
+### ЛР 03. Запити без пароля й без cookie (REST Client у VS Code: Send Request над рядком запиту)
+@host = http://localhost:5080
+
+### Крок 1 / A-01 вручну: GET /api/me без входу (до змін: 501, після: 401)
+GET {{host}}/api/me
+
+### Крок 4: GET /api/me без cookie, з X-Demo-UserId Боба (до змін: 200 і профіль Bob — дефект; після: 401)
+GET {{host}}/api/me
+X-Demo-UserId: 10000000-0000-0000-0000-000000000002
+
+### CP-03: анонімний POST до захищеного endpoint (після змін: 401)
+POST {{host}}/api/incidents
+Content-Type: application/json
+
+{
+  "title": "CP-03 анонімний запит",
+  "description": "Цей запит без cookie має отримати 401.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-10-01T10:00:00+03:00",
+  "ownerUserId": "10000000-0000-0000-0000-000000000001"
+}
+
+### Health-перевірка після перезапуску API
+GET {{host}}/health

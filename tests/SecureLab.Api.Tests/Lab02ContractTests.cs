@@ -10,9 +10,20 @@ namespace SecureLab.Api.Tests;
 // ЛР 02: автоматичні перевірки контракту POST /api/incidents (T-01, T-02, T-03, T-09).
 // Кожен тест, що створює дані, прибирає лише власні записи у finally.
 public sealed class Lab02ContractTests(SecureLabApiFactory factory)
-    : IClassFixture<SecureLabApiFactory>
+    : IClassFixture<SecureLabApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    // ЛР 03: POST /api/incidents тепер вимагає входу —
+    // контрактні тести ЛР 2 виконуються від імені Alice (cookie-клієнт).
+    private HttpClient _client = null!;
+
+    public async Task InitializeAsync() =>
+        _client = await factory.LoginAsync("alice", Lab03TestSupport.StudyPassword);
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
+    }
 
     // T-01 + CP-01: коректне створення; зайві server-managed поля JSON ігноруються.
     [Fact]

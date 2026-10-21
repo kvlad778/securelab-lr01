@@ -1,7 +1,74 @@
 <!doctype html>
-<html lang="uk"><meta charset="utf-8"><title>ЛР 03 — сеанс</title>
-<h1>Навчальний сеанс</h1>
-<form id="login"><label>Ім’я <input name="userName" autocomplete="username" required></label>
-<label>Пароль <input name="password" type="password" autocomplete="current-password" required></label><button>Увійти</button></form>
-<button id="me">Мій профіль</button><button id="logout">Вийти</button><pre id="result"></pre>
-<script src="auth-lab.js" defer></script></html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <title>ЛР 03 — сеанс SecureLab</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    fieldset { margin: 0 0 16px; border: 1px solid #bbb; border-radius: 6px; }
+    label { display: block; margin: 6px 0; }
+    input, select, textarea { width: 100%; box-sizing: border-box; padding: 4px; }
+    button { margin: 6px 6px 0 0; padding: 6px 12px; }
+    .state { padding: 8px 12px; border-radius: 6px; font-weight: 600; }
+    .state-anonymous { background: #fde8e8; }
+    .state-signed-in { background: #e3f6e5; }
+    .state-unknown { background: #eee; }
+    #result { background: #f4f4f4; padding: 8px; min-height: 1.5em; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Навчальний сеанс SecureLab (ЛР 03)</h1>
+
+  <p id="state" class="state state-unknown" role="status">Стан сеансу ще не перевірено.</p>
+
+  <fieldset>
+    <legend>Профіль поточного користувача (GET /api/me)</legend>
+    <dl id="profile" hidden>
+      <dt>Ідентифікатор</dt><dd id="profile-id"></dd>
+      <dt>Ім’я користувача</dt><dd id="profile-name"></dd>
+      <dt>Роль</dt><dd id="profile-role"></dd>
+    </dl>
+    <p id="profile-empty">Профіль недоступний: ви не ввійшли.</p>
+    <button id="me" type="button">Оновити профіль</button>
+    <button id="logout" type="button">Вийти</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Реєстрація (POST /api/auth/register)</legend>
+    <form id="register">
+      <label>Ім’я користувача <input name="userName" autocomplete="username" required maxlength="64"></label>
+      <label>Email <input name="email" type="email" autocomplete="email" required maxlength="256"></label>
+      <label>Відображуване ім’я <input name="displayName" required maxlength="120"></label>
+      <label>Пароль <input name="password" type="password" autocomplete="new-password" required></label>
+      <button>Зареєструватися</button>
+    </form>
+  </fieldset>
+
+  <fieldset>
+    <legend>Вхід (POST /api/auth/login)</legend>
+    <form id="login">
+      <label>Ім’я <input name="userName" autocomplete="username" required></label>
+      <label>Пароль <input name="password" type="password" autocomplete="current-password" required></label>
+      <button>Увійти</button>
+    </form>
+  </fieldset>
+
+  <fieldset>
+    <legend>Новий інцидент (POST /api/incidents)</legend>
+    <form id="incident">
+      <label>Назва <input name="title" required maxlength="160"></label>
+      <label>Опис <textarea name="description" required maxlength="4000" rows="3"></textarea></label>
+      <label>Severity
+        <select name="severity">
+          <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+        </select>
+      </label>
+      <label>Коли стався <input name="occurredAt" type="datetime-local" required></label>
+      <button>Створити інцидент</button>
+    </form>
+  </fieldset>
+
+  <pre id="result" role="status"></pre>
+  <script src="auth-lab.js" defer></script>
+</body>
+</html>

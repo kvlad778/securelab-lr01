@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecureLab.Api.Data;
 using SecureLab.Api.Data.Entities;
+using System.Security.Claims;
 
 namespace SecureLab.Api.Scaffolding;
 
@@ -10,7 +11,7 @@ public static class Lab02Endpoints
     public static void MapLab02Endpoints(this WebApplication app)
     {
         app.MapGet("/api/incidents/search", SearchIncidentsAsync);
-        app.MapPost("/api/incidents", CreateIncidentAsync);
+        app.MapPost("/api/incidents", CreateIncidentAsync).RequireAuthorization();
     }
 
     // ЛР 02, етап 4: безпечний пошук. Значення q передається в PostgreSQL окремим параметром
@@ -86,8 +87,16 @@ public static class Lab02Endpoints
     private static async Task<IResult> CreateIncidentAsync(
         CreateIncidentRequest request,
         SecureLabDbContext db,
+        HttpContext httpContext,
         CancellationToken ct)
     {
+        // ЛР 03: власник — лише з verified principal (cookie), не з JSON чи header.
+        var currentUserIdText = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(currentUserIdText, out var currentUserId))
+        {
+            return Results.Problem(statusCode: StatusCodes.Status500InternalServerError);
+        }
+
         // Поточний UTC-час сервера фіксуємо один раз на початку обробки.
         var now = DateTimeOffset.UtcNow;
         var errors = new Dictionary<string, string[]>();
@@ -173,7 +182,7 @@ public static class Lab02Endpoints
         var incident = new Incident
         {
             Id = Guid.NewGuid(),
-            OwnerUserId = DbSeeder.AliceId,
+            OwnerUserId = currentUserId,
             Title = title,
             Description = description,
             Severity = severity,
