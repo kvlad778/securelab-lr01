@@ -157,3 +157,9 @@ GET {{api}}/api/incidents/search?sortBy=status
 
 ### T-05 — невідоме sortBy (після виправлення: 400, ключ sortBy)
 GET {{api}}/api/incidents/search?sortBy=price
+
+### Ручна відповідь 1
+GET {{api}}/api/incidents/search
+ 
+### Ручна відповідь 2
+GET {{api}}/api/incidents/search
