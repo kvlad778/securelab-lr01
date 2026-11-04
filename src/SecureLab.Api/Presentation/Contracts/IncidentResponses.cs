@@ -28,4 +28,14 @@ public sealed record IncidentCommentResponse(
 public sealed record IncidentSeveritySummaryResponse(
     string Severity,
     int Count);
-    
+
+// ЛР 04: звичайне оновлення змісту. Лише content fields:
+// OwnerUserId, Status, Severity, Id, role тут навмисно відсутні (захист від overposting, A-08a).
+public sealed record UpdateIncidentRequest(
+    string? Title,
+    string? Description);
+
+// ЛР 04: відповідь на POST /api/incidents/{id}/triage — новий статус визначив сервер.
+public sealed record IncidentTriageResponse(
+    Guid Id,
+    string Status);

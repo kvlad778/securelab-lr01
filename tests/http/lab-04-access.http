@@ -1,0 +1,104 @@
+### ЛР 04. Сценарій PoC і retest (VS Code + REST Client: «Send Request» над кожним запитом, ПО ПОРЯДКУ).
+### Пароль береться зі змінної середовища SeedUsers__Password (VS Code запускайте командою `code .`
+### з того терміналу, де пароль задано). Cookie REST Client тримає сам — значення ніде не друкується.
+### Після mutation-запитів стан відновлює: dotnet run --project src/SecureLab.Api -- --reset-database
+
+@host = http://localhost:5080
+@aliceId = 20000000-0000-0000-0000-000000000001
+@bobId = 20000000-0000-0000-0000-000000000002
+@aliceNewId = 20000000-0000-0000-0000-000000000003
+@unknownId = 20000000-0000-0000-0000-0000000000ff
+@bobCommentId = 30000000-0000-0000-0000-000000000002
+@internalCommentId = 30000000-0000-0000-0000-000000000003
+
+### 0. Анонімно: details без cookie (до виправлення — 200, після — 401)
+GET {{host}}/api/incidents/{{aliceId}}
+Accept: application/json
+
+### 1. Bob login — прочитати стан Bob ДО спроби Alice (baseline)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "userName": "bob", "password": "{{$processEnv SeedUsers__Password}}" }
+
+### 2. Bob: власні details (запам'ятайте title — «Невідома спроба входу»)
+GET {{host}}/api/incidents/{{bobId}}
+Accept: application/json
+
+### 3. Alice login; REST Client reads process environment
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "userName": "alice", "password": "{{$processEnv SeedUsers__Password}}" }
+
+### 4. A-02: Own details (очікувано 200, id Alice)
+GET {{host}}/api/incidents/{{aliceId}}
+Accept: application/json
+
+### 5. A-03: Foreign details with the same Alice cookie (до: 200 і дані Bob; після: 404)
+GET {{host}}/api/incidents/{{bobId}}
+Accept: application/json
+
+### 6. A-10: unknown id тим самим клієнтом (після: той самий 404, відрізняється лише traceId)
+GET {{host}}/api/incidents/{{unknownId}}
+Accept: application/json
+
+### 7. A-05: list Alice (після: лише власні інциденти, без …0002 і …0004)
+GET {{host}}/api/incidents
+Accept: application/json
+
+### 8. A-04 (mutation): Alice змінює інцидент Bob (до: 204; після: 404)
+PUT {{host}}/api/incidents/{{bobId}}
+Content-Type: application/json
+
+{ "title": "PoC: змінено Alice", "description": "Навчальна зміна PoC ЛР 04, скасовується reset-ом." }
+
+### 9. A-04 (delete): Alice видаляє інцидент Bob (до: маршруту delete ще немає — 405 або HTML; після: 404)
+DELETE {{host}}/api/incidents/{{bobId}}
+
+### 10. A-06: Reporter Alice виконує privileged triage власного New-інциденту (до: 200 Triaged; після: 403)
+POST {{host}}/api/incidents/{{aliceNewId}}/triage
+
+### 11. Alice: стан …0003 після спроби (після виправлення має лишитися New)
+GET {{host}}/api/incidents/{{aliceNewId}}
+Accept: application/json
+
+### 12. A-12: Alice напряму читає коментар Morgan до інциденту Bob (до: маршруту немає; після: 404)
+GET {{host}}/api/incident-comments/{{bobCommentId}}
+Accept: application/json
+
+### 13. A-12: Alice напряму читає internal comment до власного інциденту (після: 404)
+GET {{host}}/api/incident-comments/{{internalCommentId}}
+Accept: application/json
+
+### 14. Bob login — стан Bob ПІСЛЯ спроб Alice (title має бути без змін після виправлення)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "userName": "bob", "password": "{{$processEnv SeedUsers__Password}}" }
+
+### 15. Bob: власні details після спроб Alice
+GET {{host}}/api/incidents/{{bobId}}
+Accept: application/json
+
+### 16. Morgan login; Analyst
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "userName": "morgan", "password": "{{$processEnv SeedUsers__Password}}" }
+
+### 17. A-03R: Permitted Analyst read (200; після виправлення видно й internal comment)
+GET {{host}}/api/incidents/{{aliceId}}
+Accept: application/json
+
+### 18. A-03R: Analyst НЕ може змінювати чужий content (після: 403)
+PUT {{host}}/api/incidents/{{aliceId}}
+Content-Type: application/json
+
+{ "title": "Analyst змінює content", "description": "Має бути відмова 403." }
+
+### 19. A-07: Analyst triage New-інциденту (після: 200, status Triaged — визначив сервер)
+POST {{host}}/api/incidents/{{aliceNewId}}/triage
+
+### 20. Контекст: повторний triage вже не-New інциденту (після: 409)
+POST {{host}}/api/incidents/{{aliceNewId}}/triage
