@@ -7,19 +7,30 @@ using SecureLab.Api.Presentation.Contracts;
 namespace SecureLab.Api.Tests;
 
 public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
-    : IClassFixture<SecureLabApiFactory>
+    : IClassFixture<SecureLabApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    // ЛР 04: група /api/incidents вимагає автентифікації — тести ЛР 1 виконуються від імені Alice.
+    private HttpClient _client = null!;
 
+    public async Task InitializeAsync() =>
+        _client = await factory.LoginAsync("alice", Lab03TestSupport.StudyPassword);
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
+    }
+
+    // ЛР 04: зміна контракту за матрицею (A-05) — Alice бачить лише власні інциденти.
     [Fact]
-    public async Task GetList_ReturnsSeededIncidents()
+    public async Task GetList_AsAlice_ReturnsOwnSeededIncidentsOnly()
     {
         var incidents = await _client.GetFromJsonAsync<List<IncidentListItemResponse>>(
             "/api/incidents");
 
         Assert.NotNull(incidents);
         Assert.Contains(incidents, incident => incident.Id == DbSeeder.AliceIncidentId);
-        Assert.Contains(incidents, incident => incident.Id == DbSeeder.BobIncidentId);
+        Assert.DoesNotContain(incidents, incident => incident.Id == DbSeeder.BobIncidentId);
     }
 
     [Fact]
